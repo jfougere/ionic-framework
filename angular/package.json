@@ -1,6 +1,6 @@
 {
   "name": "@ionic/angular",
-  "version": "6.0.11",
+  "version": "6.0.11-tsl",
   "description": "Angular specific wrappers for @ionic/core",
   "keywords": [
     "ionic",
@@ -23,7 +23,8 @@
     "url": "https://github.com/ionic-team/ionic/issues"
   },
   "publishConfig": {
-    "directory": "dist"
+    "directory": "dist",
+    "registry": "https://build-nexus-react.priv.transatel.net/repository/tslnpm/"
   },
   "homepage": "https://ionicframework.com/",
   "scripts": {
@@ -44,7 +45,7 @@
     "validate": "npm i && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "@ionic/core": "^6.0.11",
+    "@ionic/core": "6.0.11-tsl",
     "jsonc-parser": "^3.0.0",
     "tslib": "^2.0.0"
   },

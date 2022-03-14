@@ -1,6 +1,6 @@
 {
   "name": "@ionic/core",
-  "version": "6.0.11",
+  "version": "6.0.11-tsl",
   "description": "Base components for Ionic",
   "keywords": [
     "ionic",
@@ -105,6 +105,9 @@
   },
   "bugs": {
     "url": "https://github.com/ionic-team/ionic/issues"
+  },
+  "publishConfig": {
+    "registry": "https://build-nexus-react.priv.transatel.net/repository/tslnpm/"
   },
   "homepage": "https://ionicframework.com/",
   "jest": {
