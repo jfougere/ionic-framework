@@ -1,6 +1,4 @@
-import { JSXBase } from '@stencil/core/internal';
-
-import { AnimationBuilder, ComponentProps, ComponentRef, FrameworkDelegate, Mode } from '../../interface';
+import type { AnimationBuilder, ComponentProps, ComponentRef, FrameworkDelegate, Mode } from '../../interface';
 
 export interface ModalOptions<T extends ComponentRef = ComponentRef> {
   component: T;
@@ -11,12 +9,12 @@ export interface ModalOptions<T extends ComponentRef = ComponentRef> {
   cssClass?: string | string[];
   delegate?: FrameworkDelegate;
   animated?: boolean;
-  swipeToClose?: boolean;
+  canDismiss?: boolean | ((data?: any, role?: string) => Promise<boolean>);
 
   mode?: Mode;
   keyboardClose?: boolean;
   id?: string;
-  htmlAttributes?: ModalAttributes;
+  htmlAttributes?: { [key: string]: any };
 
   enterAnimation?: AnimationBuilder;
   leaveAnimation?: AnimationBuilder;
@@ -25,6 +23,7 @@ export interface ModalOptions<T extends ComponentRef = ComponentRef> {
   initialBreakpoint?: number;
   backdropBreakpoint?: number;
   handle?: boolean;
+  handleBehavior?: ModalHandleBehavior;
 }
 
 export interface ModalAnimationOptions {
@@ -33,4 +32,15 @@ export interface ModalAnimationOptions {
   backdropBreakpoint?: number;
 }
 
-export interface ModalAttributes extends JSXBase.HTMLAttributes<HTMLElement> {}
+export interface ModalBreakpointChangeEventDetail {
+  breakpoint: number;
+}
+
+export interface ModalCustomEvent extends CustomEvent {
+  target: HTMLIonModalElement;
+}
+
+/**
+ * The behavior setting for modals when the handle is pressed.
+ */
+export type ModalHandleBehavior = 'none' | 'cycle';

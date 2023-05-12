@@ -1,11 +1,14 @@
-import { Component, ComponentInterface, Element, Host, Prop, h } from '@stencil/core';
+import type { ComponentInterface } from '@stencil/core';
+import { Component, Element, Host, Prop, h } from '@stencil/core';
 
-import { AnimationBuilder, ComponentProps, NavComponent, RouterDirection } from '../../interface';
+import type { AnimationBuilder, ComponentProps } from '../../interface';
+import type { NavComponent } from '../nav/nav-interface';
+import type { RouterDirection } from '../router/utils/interface';
 
 import { navLink } from './nav-link-utils';
 
 @Component({
-  tag: 'ion-nav-link'
+  tag: 'ion-nav-link',
 })
 export class NavLink implements ComponentInterface {
   @Element() el!: HTMLElement;
@@ -32,11 +35,9 @@ export class NavLink implements ComponentInterface {
 
   private onClick = () => {
     return navLink(this.el, this.routerDirection, this.component, this.componentProps, this.routerAnimation);
-  }
+  };
 
   render() {
-    return (
-      <Host onClick={this.onClick}></Host>
-    );
+    return <Host onClick={this.onClick}></Host>;
   }
 }

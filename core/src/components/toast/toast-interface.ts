@@ -1,7 +1,5 @@
-import { JSXBase } from '@stencil/core/internal';
-
-import { AnimationBuilder, Color, Mode } from '../../interface';
-import { IonicSafeString } from '../../utils/sanitization';
+import type { AnimationBuilder, Color, Mode } from '../../interface';
+import type { IonicSafeString } from '../../utils/sanitization';
 
 export interface ToastOptions {
   header?: string;
@@ -13,7 +11,8 @@ export interface ToastOptions {
   translucent?: boolean;
   animated?: boolean;
   icon?: string;
-  htmlAttributes?: ToastAttributes;
+  htmlAttributes?: { [key: string]: any };
+  layout?: ToastLayout;
 
   color?: Color;
   mode?: Mode;
@@ -24,7 +23,7 @@ export interface ToastOptions {
   leaveAnimation?: AnimationBuilder;
 }
 
-export interface ToastAttributes extends JSXBase.HTMLAttributes<HTMLElement> {}
+export type ToastLayout = 'baseline' | 'stacked';
 
 export interface ToastButton {
   text?: string;
@@ -34,3 +33,5 @@ export interface ToastButton {
   cssClass?: string | string[];
   handler?: () => boolean | void | Promise<boolean | void>;
 }
+
+export type ToastPosition = 'top' | 'bottom' | 'middle';

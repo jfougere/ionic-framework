@@ -1,6 +1,8 @@
-import { Component, Element, Event, EventEmitter, Host, Method, Prop, State, h } from '@stencil/core';
+import type { EventEmitter } from '@stencil/core';
+import { Component, Element, Event, Host, Method, Prop, State, h } from '@stencil/core';
 
-import { NavOutlet, RouteID, RouteWrite, TabButtonClickEventDetail } from '../../interface';
+import type { NavOutlet, RouteID, RouteWrite } from '../router/utils/interface';
+import type { TabButtonClickEventDetail } from '../tab-bar/tab-bar-interface';
 
 /**
  * @slot - Content is placed between the named slots if provided without a slot.
@@ -10,10 +12,9 @@ import { NavOutlet, RouteID, RouteWrite, TabButtonClickEventDetail } from '../..
 @Component({
   tag: 'ion-tabs',
   styleUrl: 'tabs.scss',
-  shadow: true
+  shadow: true,
 })
 export class Tabs implements NavOutlet {
-
   private transitioning = false;
   private leavingTab?: HTMLIonTabElement;
 
@@ -33,12 +34,12 @@ export class Tabs implements NavOutlet {
   /**
    * Emitted when the navigation is about to transition to a new component.
    */
-  @Event({ bubbles: false }) ionTabsWillChange!: EventEmitter<{tab: string}>;
+  @Event({ bubbles: false }) ionTabsWillChange!: EventEmitter<{ tab: string }>;
 
   /**
    * Emitted when the navigation has finished transitioning to a new component.
    */
-  @Event({ bubbles: false }) ionTabsDidChange!: EventEmitter<{tab: string}>;
+  @Event({ bubbles: false }) ionTabsDidChange!: EventEmitter<{ tab: string }>;
 
   async componentWillLoad() {
     if (!this.useRouter) {
@@ -62,7 +63,7 @@ export class Tabs implements NavOutlet {
   }
 
   /**
-   * Select a tab by the value of its `tab` property or an element reference.
+   * Select a tab by the value of its `tab` property or an element reference. This method is only available for vanilla JavaScript projects. The Angular, React, and Vue implementations of tabs are coupled to each framework's router.
    *
    * @param tab The tab instance to select. If passed a string, it should be the value of the tab's `tab` property.
    */
@@ -80,7 +81,7 @@ export class Tabs implements NavOutlet {
   }
 
   /**
-   * Get a specific tab by the value of its `tab` property or an element reference.
+   * Get a specific tab by the value of its `tab` property or an element reference. This method is only available for vanilla JavaScript projects. The Angular, React, and Vue implementations of tabs are coupled to each framework's router.
    *
    * @param tab The tab instance to select. If passed a string, it should be the value of the tab's `tab` property.
    */
@@ -90,7 +91,7 @@ export class Tabs implements NavOutlet {
   }
 
   /**
-   * Get the currently selected tab.
+   * Get the currently selected tab. This method is only available for vanilla JavaScript projects. The Angular, React, and Vue implementations of tabs are coupled to each framework's router.
    */
   @Method()
   getSelected(): Promise<string | undefined> {
@@ -116,7 +117,7 @@ export class Tabs implements NavOutlet {
   /** @internal */
   @Method()
   async getRouteId(): Promise<RouteID | undefined> {
-    const tabId = this.selectedTab && this.selectedTab.tab;
+    const tabId = this.selectedTab?.tab;
     return tabId !== undefined ? { id: tabId, element: this.selectedTab } : undefined;
   }
 
@@ -180,13 +181,11 @@ export class Tabs implements NavOutlet {
     } else {
       this.select(tab);
     }
-  }
+  };
 
   render() {
     return (
-      <Host
-        onIonTabButtonClick={this.onTabClicked}
-      >
+      <Host onIonTabButtonClick={this.onTabClicked}>
         <slot name="top"></slot>
         <div class="tabs-inner">
           <slot></slot>
@@ -198,9 +197,7 @@ export class Tabs implements NavOutlet {
 }
 
 const getTab = (tabs: HTMLIonTabElement[], tab: string | HTMLIonTabElement): HTMLIonTabElement | undefined => {
-  const tabEl = (typeof tab === 'string')
-    ? tabs.find(t => t.tab === tab)
-    : tab;
+  const tabEl = typeof tab === 'string' ? tabs.find((t) => t.tab === tab) : tab;
 
   if (!tabEl) {
     console.error(`tab with id: "${tabEl}" does not exist`);

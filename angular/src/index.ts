@@ -1,6 +1,6 @@
 // DIRECTIVES
 export { BooleanValueAccessorDirective as BooleanValueAccessor } from './directives/control-value-accessors/boolean-value-accessor';
-export { NumericValueAccessorDirective as NumericValueAccessor } from './directives/control-value-accessors/numeric-value-accesssor';
+export { NumericValueAccessorDirective as NumericValueAccessor } from './directives/control-value-accessors/numeric-value-accessor';
 export { RadioValueAccessorDirective as RadioValueAccessor } from './directives/control-value-accessors/radio-value-accessor';
 export { SelectValueAccessorDirective as SelectValueAccessor } from './directives/control-value-accessors/select-value-accessor';
 export { TextValueAccessorDirective as TextValueAccessor } from './directives/control-value-accessors/text-value-accessor';
@@ -8,12 +8,12 @@ export { IonTabs } from './directives/navigation/ion-tabs';
 export { IonBackButtonDelegateDirective as IonBackButtonDelegate } from './directives/navigation/ion-back-button';
 export { NavDelegate } from './directives/navigation/nav-delegate';
 export { IonRouterOutlet } from './directives/navigation/ion-router-outlet';
-export { RouterLinkDelegateDirective as RouterLinkDelegate } from './directives/navigation/router-link-delegate';
+export {
+  RouterLinkDelegateDirective as RouterLinkDelegate,
+  RouterLinkWithHrefDelegateDirective as RouterLinkWithHrefDelegate,
+} from './directives/navigation/router-link-delegate';
+
 export { NavParams } from './directives/navigation/nav-params';
-export { IonVirtualScroll } from './directives/virtual-scroll/virtual-scroll';
-export { VirtualItem } from './directives/virtual-scroll/virtual-item';
-export { VirtualHeader } from './directives/virtual-scroll/virtual-header';
-export { VirtualFooter } from './directives/virtual-scroll/virtual-footer';
 export { IonModal } from './directives/overlays/modal';
 export { IonPopover } from './directives/overlays/popover';
 export * from './directives/proxies';
@@ -50,7 +50,6 @@ export {
   createGesture,
   iosTransitionAnimation,
   mdTransitionAnimation,
-  IonicSwiper,
   IonicSlides,
   getPlatforms,
   isPlatform,
@@ -76,8 +75,6 @@ export {
   ActionSheetButton,
   AlertOptions,
   AlertInput,
-  AlertTextareaAttributes,
-  AlertInputAttributes,
   AlertButton,
   BackButtonEvent,
   CheckboxCustomEvent,
@@ -103,6 +100,10 @@ export {
   PopoverOptions,
   RadioGroupCustomEvent,
   RadioGroupChangeEventDetail,
+  RangeCustomEvent,
+  RangeChangeEventDetail,
+  RangeKnobMoveStartEventDetail,
+  RangeKnobMoveEndEventDetail,
   RefresherCustomEvent,
   RefresherEventDetail,
   RouterEventDetail,
@@ -113,6 +114,7 @@ export {
   ScrollCustomEvent,
   SearchbarCustomEvent,
   SearchbarChangeEventDetail,
+  SearchbarInputEventDetail,
   SegmentChangeEventDetail,
   SegmentCustomEvent,
   SelectChangeEventDetail,
@@ -122,6 +124,7 @@ export {
   TextareaCustomEvent,
   ToastOptions,
   ToastButton,
+  ToastLayout,
   ToggleChangeEventDetail,
   ToggleCustomEvent,
 } from '@ionic/core';

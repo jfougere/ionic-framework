@@ -1,15 +1,33 @@
 import { config } from '../global/config';
 import { getIonMode } from '../global/ionic-global';
-import { ActionSheetOptions, AlertOptions, Animation, AnimationBuilder, BackButtonEvent, HTMLIonOverlayElement, IonicConfig, LoadingOptions, ModalOptions, OverlayInterface, PickerOptions, PopoverOptions, ToastOptions } from '../interface';
+import type {
+  ActionSheetOptions,
+  AlertOptions,
+  Animation,
+  AnimationBuilder,
+  BackButtonEvent,
+  FrameworkDelegate,
+  HTMLIonOverlayElement,
+  IonicConfig,
+  LoadingOptions,
+  ModalOptions,
+  OverlayInterface,
+  PickerOptions,
+  PopoverOptions,
+  ToastOptions,
+} from '../interface';
 
+import { CoreDelegate } from './framework-delegate';
 import { OVERLAY_BACK_BUTTON_PRIORITY } from './hardware-back-button';
 import { addEventListener, componentOnReady, focusElement, getElementRoot, removeEventListener } from './helpers';
+import { printIonWarning } from './logging';
 
+let lastOverlayIndex = 0;
 let lastId = 0;
 
 export const activeAnimations = new WeakMap<OverlayInterface, Animation[]>();
 
-const createController = <Opts extends object, HTMLElm extends any>(tagName: string) => {
+const createController = <Opts extends object, HTMLElm>(tagName: string) => {
   return {
     create(options: Opts): Promise<HTMLElm> {
       return createOverlay(tagName, options) as any;
@@ -19,32 +37,62 @@ const createController = <Opts extends object, HTMLElm extends any>(tagName: str
     },
     async getTop(): Promise<HTMLElm | undefined> {
       return getOverlay(document, tagName) as any;
-    }
+    },
   };
 };
 
-export const alertController = /*@__PURE__*/createController<AlertOptions, HTMLIonAlertElement>('ion-alert');
-export const actionSheetController = /*@__PURE__*/createController<ActionSheetOptions, HTMLIonActionSheetElement>('ion-action-sheet');
-export const loadingController = /*@__PURE__*/createController<LoadingOptions, HTMLIonLoadingElement>('ion-loading');
-export const modalController = /*@__PURE__*/createController<ModalOptions, HTMLIonModalElement>('ion-modal');
-export const pickerController = /*@__PURE__*/createController<PickerOptions, HTMLIonPickerElement>('ion-picker');
-export const popoverController = /*@__PURE__*/createController<PopoverOptions, HTMLIonPopoverElement>('ion-popover');
-export const toastController = /*@__PURE__*/createController<ToastOptions, HTMLIonToastElement>('ion-toast');
+export const alertController = /*@__PURE__*/ createController<AlertOptions, HTMLIonAlertElement>('ion-alert');
+export const actionSheetController = /*@__PURE__*/ createController<ActionSheetOptions, HTMLIonActionSheetElement>(
+  'ion-action-sheet'
+);
+export const loadingController = /*@__PURE__*/ createController<LoadingOptions, HTMLIonLoadingElement>('ion-loading');
+export const modalController = /*@__PURE__*/ createController<ModalOptions, HTMLIonModalElement>('ion-modal');
+export const pickerController = /*@__PURE__*/ createController<PickerOptions, HTMLIonPickerElement>('ion-picker');
+export const popoverController = /*@__PURE__*/ createController<PopoverOptions, HTMLIonPopoverElement>('ion-popover');
+export const toastController = /*@__PURE__*/ createController<ToastOptions, HTMLIonToastElement>('ion-toast');
 
+/**
+ * Prepares the overlay element to be presented.
+ */
 export const prepareOverlay = <T extends HTMLIonOverlayElement>(el: T) => {
-  /* tslint:disable-next-line */
   if (typeof document !== 'undefined') {
+    /**
+     * Adds a single instance of event listeners for application behaviors:
+     *
+     * - Escape Key behavior to dismiss an overlay
+     * - Trapping focus within an overlay
+     * - Back button behavior to dismiss an overlay
+     *
+     * This only occurs when the first overlay is created.
+     */
     connectListeners(document);
   }
-  const overlayIndex = lastId++;
+  const overlayIndex = lastOverlayIndex++;
+  /**
+   * overlayIndex is used in the overlay components to set a zIndex.
+   * This ensures that the most recently presented overlay will be
+   * on top.
+   */
   el.overlayIndex = overlayIndex;
-  if (!el.hasAttribute('id')) {
-    el.id = `ion-overlay-${overlayIndex}`;
-  }
 };
 
-export const createOverlay = <T extends HTMLIonOverlayElement>(tagName: string, opts: object | undefined): Promise<T> => {
-  /* tslint:disable-next-line */
+/**
+ * Assigns an incrementing id to an overlay element, that does not
+ * already have an id assigned to it.
+ *
+ * Used to track unique instances of an overlay element.
+ */
+export const setOverlayId = <T extends HTMLIonOverlayElement>(el: T) => {
+  if (!el.hasAttribute('id')) {
+    el.id = `ion-overlay-${++lastId}`;
+  }
+  return el.id;
+};
+
+export const createOverlay = <T extends HTMLIonOverlayElement>(
+  tagName: string,
+  opts: object | undefined
+): Promise<T> => {
   if (typeof window !== 'undefined' && typeof window.customElements !== 'undefined') {
     return window.customElements.whenDefined(tagName).then(() => {
       const element = document.createElement(tagName) as HTMLIonOverlayElement;
@@ -59,22 +107,34 @@ export const createOverlay = <T extends HTMLIonOverlayElement>(tagName: string, 
       // append the overlay element to the document body
       getAppRoot(document).appendChild(element);
 
-      return new Promise(resolve => componentOnReady(element, resolve));
+      return new Promise((resolve) => componentOnReady(element, resolve));
     });
   }
   return Promise.resolve() as any;
 };
 
-const focusableQueryString = '[tabindex]:not([tabindex^="-"]), input:not([type=hidden]):not([tabindex^="-"]), textarea:not([tabindex^="-"]), button:not([tabindex^="-"]), select:not([tabindex^="-"]), .ion-focusable:not([tabindex^="-"])';
-const innerFocusableQueryString = 'input:not([type=hidden]), textarea, button, select';
+/**
+ * This query string selects elements that
+ * are eligible to receive focus. We select
+ * interactive elements that meet the following
+ * criteria:
+ * 1. Element does not have a negative tabindex
+ * 2. Element does not have `hidden`
+ * 3. Element does not have `disabled` for non-Ionic components.
+ * 4. Element does not have `disabled` or `disabled="true"` for Ionic components.
+ * Note: We need this distinction because `disabled="false"` is
+ * valid usage for the disabled property on ion-button.
+ */
+const focusableQueryString =
+  '[tabindex]:not([tabindex^="-"]):not([hidden]):not([disabled]), input:not([type=hidden]):not([tabindex^="-"]):not([hidden]):not([disabled]), textarea:not([tabindex^="-"]):not([hidden]):not([disabled]), button:not([tabindex^="-"]):not([hidden]):not([disabled]), select:not([tabindex^="-"]):not([hidden]):not([disabled]), .ion-focusable:not([tabindex^="-"]):not([hidden]):not([disabled]), .ion-focusable[disabled="false"]:not([tabindex^="-"]):not([hidden])';
 
 export const focusFirstDescendant = (ref: Element, overlay: HTMLIonOverlayElement) => {
   let firstInput = ref.querySelector(focusableQueryString) as HTMLElement | null;
 
-  const shadowRoot = firstInput && firstInput.shadowRoot;
+  const shadowRoot = firstInput?.shadowRoot;
   if (shadowRoot) {
     // If there are no inner focusable elements, just focus the host element.
-    firstInput = shadowRoot.querySelector(innerFocusableQueryString) || firstInput;
+    firstInput = shadowRoot.querySelector(focusableQueryString) || firstInput;
   }
 
   if (firstInput) {
@@ -91,10 +151,10 @@ const focusLastDescendant = (ref: Element, overlay: HTMLIonOverlayElement) => {
   const inputs = Array.from(ref.querySelectorAll(focusableQueryString)) as HTMLElement[];
   let lastInput = inputs.length > 0 ? inputs[inputs.length - 1] : null;
 
-  const shadowRoot = lastInput && lastInput.shadowRoot;
+  const shadowRoot = lastInput?.shadowRoot;
   if (shadowRoot) {
     // If there are no inner focusable elements, just focus the host element.
-    lastInput = shadowRoot.querySelector(innerFocusableQueryString) || lastInput;
+    lastInput = shadowRoot.querySelector(focusableQueryString) || lastInput;
   }
 
   if (lastInput) {
@@ -126,7 +186,9 @@ const trapKeyboardFocus = (ev: Event, doc: Document) => {
    * We need to add a listener to the shadow root
    * itself to ensure the focus trap works.
    */
-  if (!lastOverlay || !target) { return; }
+  if (!lastOverlay || !target) {
+    return;
+  }
 
   /**
    * If the ion-disable-focus-trap class
@@ -137,7 +199,9 @@ const trapKeyboardFocus = (ev: Event, doc: Document) => {
    * behind the sheet should be focusable until
    * the backdrop is enabled.
    */
-  if (lastOverlay.classList.contains('ion-disable-focus-trap')) { return; }
+  if (lastOverlay.classList.contains('ion-disable-focus-trap')) {
+    return;
+  }
 
   const trapScopedFocus = () => {
     /**
@@ -164,10 +228,14 @@ const trapKeyboardFocus = (ev: Event, doc: Document) => {
        */
 
       const overlayRoot = getElementRoot(lastOverlay);
-      if (!overlayRoot.contains(target)) { return; }
+      if (!overlayRoot.contains(target)) {
+        return;
+      }
 
       const overlayWrapper = overlayRoot.querySelector('.ion-overlay-wrapper');
-      if (!overlayWrapper) { return; }
+      if (!overlayWrapper) {
+        return;
+      }
 
       /**
        * If the target is inside the wrapper, let the browser
@@ -209,9 +277,8 @@ const trapKeyboardFocus = (ev: Event, doc: Document) => {
         lastOverlay.lastFocus = doc.activeElement as HTMLElement;
       }
     }
-  }
+  };
   const trapShadowFocus = () => {
-
     /**
      * If the target is inside the wrapper, let the browser
      * focus as normal and keep a log of the last focused element.
@@ -252,7 +319,7 @@ const trapKeyboardFocus = (ev: Event, doc: Document) => {
       }
       lastOverlay.lastFocus = doc.activeElement as HTMLElement;
     }
-  }
+  };
 
   if (lastOverlay.shadowRoot) {
     trapShadowFocus();
@@ -262,16 +329,20 @@ const trapKeyboardFocus = (ev: Event, doc: Document) => {
 };
 
 const connectListeners = (doc: Document) => {
-  if (lastId === 0) {
-    lastId = 1;
-    doc.addEventListener('focus', (ev: FocusEvent) => {
-      trapKeyboardFocus(ev, doc);
-    }, true);
+  if (lastOverlayIndex === 0) {
+    lastOverlayIndex = 1;
+    doc.addEventListener(
+      'focus',
+      (ev: FocusEvent) => {
+        trapKeyboardFocus(ev, doc);
+      },
+      true
+    );
 
     // handle back-button click
-    doc.addEventListener('ionBackButton', ev => {
+    doc.addEventListener('ionBackButton', (ev) => {
       const lastOverlay = getOverlay(doc);
-      if (lastOverlay && lastOverlay.backdropDismiss) {
+      if (lastOverlay?.backdropDismiss) {
         (ev as BackButtonEvent).detail.register(OVERLAY_BACK_BUTTON_PRIORITY, () => {
           return lastOverlay.dismiss(undefined, BACKDROP);
         });
@@ -279,10 +350,10 @@ const connectListeners = (doc: Document) => {
     });
 
     // handle ESC to close overlay
-    doc.addEventListener('keyup', ev => {
+    doc.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape') {
         const lastOverlay = getOverlay(doc);
-        if (lastOverlay && lastOverlay.backdropDismiss) {
+        if (lastOverlay?.backdropDismiss) {
           lastOverlay.dismiss(undefined, BACKDROP);
         }
       }
@@ -290,7 +361,13 @@ const connectListeners = (doc: Document) => {
   }
 };
 
-export const dismissOverlay = (doc: Document, data: any, role: string | undefined, overlayTag: string, id?: string): Promise<boolean> => {
+export const dismissOverlay = (
+  doc: Document,
+  data: any,
+  role: string | undefined,
+  overlayTag: string,
+  id?: string
+): Promise<boolean> => {
   const overlay = getOverlay(doc, overlayTag, id);
   if (!overlay) {
     return Promise.reject('overlay does not exist');
@@ -302,8 +379,7 @@ export const getOverlays = (doc: Document, selector?: string): HTMLIonOverlayEle
   if (selector === undefined) {
     selector = 'ion-alert,ion-action-sheet,ion-loading,ion-modal,ion-picker,ion-popover,ion-toast';
   }
-  return (Array.from(doc.querySelectorAll(selector)) as HTMLIonOverlayElement[])
-    .filter(c => c.overlayIndex > 0);
+  return (Array.from(doc.querySelectorAll(selector)) as HTMLIonOverlayElement[]).filter((c) => c.overlayIndex > 0);
 };
 
 /**
@@ -314,10 +390,8 @@ export const getOverlays = (doc: Document, selector?: string): HTMLIonOverlayEle
  * @returns The overlay element or `undefined` if no overlay element is found.
  */
 export const getOverlay = (doc: Document, overlayTag?: string, id?: string): HTMLIonOverlayElement | undefined => {
-  const overlays = getOverlays(doc, overlayTag).filter(o => !isOverlayHidden(o));
-  return (id === undefined)
-    ? overlays[overlays.length - 1]
-    : overlays.find(o => o.id === id);
+  const overlays = getOverlays(doc, overlayTag).filter((o) => !isOverlayHidden(o));
+  return id === undefined ? overlays[overlays.length - 1] : overlays.find((o) => o.id === id);
 };
 
 /**
@@ -346,21 +420,23 @@ export const setRootAriaHidden = (hidden = false) => {
   const root = getAppRoot(document);
   const viewContainer = root.querySelector('ion-router-outlet, ion-nav, #ion-view-container-root');
 
-  if (!viewContainer) { return; }
+  if (!viewContainer) {
+    return;
+  }
 
   if (hidden) {
     viewContainer.setAttribute('aria-hidden', 'true');
   } else {
     viewContainer.removeAttribute('aria-hidden');
   }
-}
+};
 
-export const present = async (
+export const present = async <OverlayPresentOptions>(
   overlay: OverlayInterface,
   name: keyof IonicConfig,
   iosEnterAnimation: AnimationBuilder,
   mdEnterAnimation: AnimationBuilder,
-  opts?: any
+  opts?: OverlayPresentOptions
 ) => {
   if (overlay.presented) {
     return;
@@ -374,7 +450,7 @@ export const present = async (
 
   const mode = getIonMode(overlay);
   // get the user's animation fn if one was provided
-  const animationBuilder = (overlay.enterAnimation)
+  const animationBuilder = overlay.enterAnimation
     ? overlay.enterAnimation
     : config.get(name, mode === 'ios' ? iosEnterAnimation : mdEnterAnimation);
 
@@ -396,7 +472,13 @@ export const present = async (
     focusPreviousElementOnDismiss(overlay.el);
   }
 
-  if (overlay.keyboardClose) {
+  /**
+   * If the focused element is already
+   * inside the overlay component then
+   * focus should not be moved from that
+   * to the overlay container.
+   */
+  if (overlay.keyboardClose && (document.activeElement === null || !overlay.el.contains(document.activeElement))) {
     overlay.el.focus();
   }
 };
@@ -413,26 +495,28 @@ export const present = async (
  */
 const focusPreviousElementOnDismiss = async (overlayEl: any) => {
   let previousElement = document.activeElement as HTMLElement | null;
-  if (!previousElement) { return; }
+  if (!previousElement) {
+    return;
+  }
 
-  const shadowRoot = previousElement && previousElement.shadowRoot;
+  const shadowRoot = previousElement?.shadowRoot;
   if (shadowRoot) {
     // If there are no inner focusable elements, just focus the host element.
-    previousElement = shadowRoot.querySelector(innerFocusableQueryString) || previousElement;
+    previousElement = shadowRoot.querySelector(focusableQueryString) || previousElement;
   }
 
   await overlayEl.onDidDismiss();
   previousElement.focus();
 };
 
-export const dismiss = async (
+export const dismiss = async <OverlayDismissOptions>(
   overlay: OverlayInterface,
   data: any | undefined,
   role: string | undefined,
   name: keyof IonicConfig,
   iosLeaveAnimation: AnimationBuilder,
   mdLeaveAnimation: AnimationBuilder,
-  opts?: any
+  opts?: OverlayDismissOptions
 ): Promise<boolean> => {
   if (!overlay.presented) {
     return false;
@@ -449,12 +533,12 @@ export const dismiss = async (
     overlay.willDismissShorthand?.emit({ data, role });
 
     const mode = getIonMode(overlay);
-    const animationBuilder = (overlay.leaveAnimation)
+    const animationBuilder = overlay.leaveAnimation
       ? overlay.leaveAnimation
       : config.get(name, mode === 'ios' ? iosLeaveAnimation : mdLeaveAnimation);
 
     // If dismissed via gesture, no need to play leaving animation again
-    if (role !== 'gesture') {
+    if (role !== GESTURE) {
       await overlayAnimation(overlay, animationBuilder, overlay.el, opts);
     }
     overlay.didDismiss.emit({ data, role });
@@ -470,6 +554,13 @@ export const dismiss = async (
     overlay.el.classList.add('overlay-hidden');
     overlay.el.style.removeProperty('pointer-events');
 
+    /**
+     * Clear any focus trapping references
+     * when the overlay is dismissed.
+     */
+    if (overlay.el.lastFocus !== undefined) {
+      overlay.el.lastFocus = undefined;
+    }
   } catch (err) {
     console.error(err);
   }
@@ -501,7 +592,7 @@ const overlayAnimation = async (
   if (overlay.keyboardClose) {
     animation.beforeAddWrite(() => {
       const activeElement = baseEl.ownerDocument!.activeElement as HTMLElement;
-      if (activeElement && activeElement.matches('input,ion-input, ion-textarea')) {
+      if (activeElement?.matches('input,ion-input, ion-textarea')) {
         activeElement.blur();
       }
     });
@@ -517,7 +608,7 @@ const overlayAnimation = async (
 
 export const eventMethod = <T>(element: HTMLElement, eventName: string): Promise<T> => {
   let resolve: (detail: T) => void;
-  const promise = new Promise<T>(r => resolve = r);
+  const promise = new Promise<T>((r) => (resolve = r));
   onceEvent(element, eventName, (event: any) => {
     resolve(event.detail);
   });
@@ -560,3 +651,152 @@ export const safeCall = (handler: any, arg?: any) => {
 };
 
 export const BACKDROP = 'backdrop';
+export const GESTURE = 'gesture';
+
+/**
+ * Creates a delegate controller.
+ *
+ * Requires that the component has the following properties:
+ * - `el: HTMLElement`
+ * - `hasController: boolean`
+ * - `delegate?: FrameworkDelegate`
+ *
+ * @param ref The component class instance.
+ */
+export const createDelegateController = (ref: {
+  el: HTMLElement;
+  hasController: boolean;
+  delegate?: FrameworkDelegate;
+}) => {
+  let inline = false;
+  let workingDelegate: FrameworkDelegate | undefined;
+
+  const coreDelegate: FrameworkDelegate = CoreDelegate();
+
+  /**
+   * Determines whether or not an overlay is being used
+   * inline or via a controller/JS and returns the correct delegate.
+   * By default, subsequent calls to getDelegate will use
+   * a cached version of the delegate.
+   * This is useful for calling dismiss after present,
+   * so that the correct delegate is given.
+   * @param force `true` to force the non-cached version of the delegate.
+   * @returns The delegate to use and whether or not the overlay is inline.
+   */
+  const getDelegate = (force = false) => {
+    if (workingDelegate && !force) {
+      return {
+        delegate: workingDelegate,
+        inline,
+      };
+    }
+    const { el, hasController, delegate } = ref;
+    /**
+     * If using overlay inline
+     * we potentially need to use the coreDelegate
+     * so that this works in vanilla JS apps.
+     * If a developer has presented this component
+     * via a controller, then we can assume
+     * the component is already in the
+     * correct place.
+     */
+    const parentEl = el.parentNode as HTMLElement | null;
+    inline = parentEl !== null && !hasController;
+    workingDelegate = inline ? delegate || coreDelegate : delegate;
+
+    return { inline, delegate: workingDelegate };
+  };
+
+  /**
+   * Attaches a component in the DOM. Teleports the component
+   * to the root of the app.
+   * @param component The component to optionally construct and append to the element.
+   */
+  const attachViewToDom = async (component?: any) => {
+    const { delegate } = getDelegate(true);
+    if (delegate) {
+      return await delegate.attachViewToDom(ref.el, component);
+    }
+    const { hasController } = ref;
+    if (hasController && component !== undefined) {
+      throw new Error('framework delegate is missing');
+    }
+    return null;
+  };
+
+  /**
+   * Moves a component back to its original location in the DOM.
+   */
+  const removeViewFromDom = () => {
+    const { delegate } = getDelegate();
+    if (delegate && ref.el !== undefined) {
+      delegate.removeViewFromDom(ref.el.parentElement, ref.el);
+    }
+  };
+
+  return {
+    attachViewToDom,
+    removeViewFromDom,
+  };
+};
+
+/**
+ * Constructs a trigger interaction for an overlay.
+ * Presents an overlay when the trigger is clicked.
+ *
+ * Usage:
+ * ```ts
+ * triggerController = createTriggerController();
+ * triggerController.addClickListener(el, trigger);
+ * ```
+ */
+export const createTriggerController = () => {
+  let destroyTriggerInteraction: (() => void) | undefined;
+
+  /**
+   * Removes the click listener from the trigger element.
+   */
+  const removeClickListener = (): void => {
+    if (destroyTriggerInteraction) {
+      destroyTriggerInteraction();
+      destroyTriggerInteraction = undefined;
+    }
+  };
+
+  /**
+   * Adds a click listener to the trigger element.
+   * Presents the overlay when the trigger is clicked.
+   * @param el The overlay element.
+   * @param trigger The ID of the element to add a click listener to.
+   */
+  const addClickListener = (el: HTMLIonOverlayElement, trigger: string): void => {
+    removeClickListener();
+
+    const triggerEl = trigger !== undefined ? document.getElementById(trigger) : null;
+    if (!triggerEl) {
+      printIonWarning(
+        `A trigger element with the ID "${trigger}" was not found in the DOM. The trigger element must be in the DOM when the "trigger" property is set on an overlay component.`,
+        el
+      );
+      return;
+    }
+
+    const configureTriggerInteraction = (targetEl: HTMLElement, overlayEl: HTMLIonOverlayElement) => {
+      const openOverlay = () => {
+        overlayEl.present();
+      };
+      targetEl.addEventListener('click', openOverlay);
+
+      return () => {
+        targetEl.removeEventListener('click', openOverlay);
+      };
+    };
+
+    destroyTriggerInteraction = configureTriggerInteraction(triggerEl, el);
+  };
+
+  return {
+    addClickListener,
+    removeClickListener,
+  };
+};

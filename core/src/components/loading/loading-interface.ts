@@ -1,7 +1,6 @@
-import { JSXBase } from '@stencil/core/internal';
-
-import { AnimationBuilder, Mode, SpinnerTypes } from '../../interface';
-import { IonicSafeString } from '../../utils/sanitization';
+import type { AnimationBuilder, Mode } from '../../interface';
+import type { IonicSafeString } from '../../utils/sanitization';
+import type { SpinnerTypes } from '../spinner/spinner-configs';
 
 export interface LoadingOptions {
   spinner?: SpinnerTypes | null;
@@ -15,10 +14,8 @@ export interface LoadingOptions {
   mode?: Mode;
   keyboardClose?: boolean;
   id?: string;
-  htmlAttributes?: LoadingAttributes;
+  htmlAttributes?: { [key: string]: any };
 
   enterAnimation?: AnimationBuilder;
   leaveAnimation?: AnimationBuilder;
 }
-
-export interface LoadingAttributes extends JSXBase.HTMLAttributes<HTMLElement> {}

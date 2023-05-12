@@ -1,10 +1,10 @@
-import { h, defineComponent } from 'vue';
-import { isPlatform } from '@ionic/core/components';
-import { defineCustomElement } from '../utils';
-import { IonIcon as IonIconCmp } from 'ionicons/components/ion-icon.js';
+import { defineCustomElement } from "ionicons/components/ion-icon.js";
+import { h, defineComponent } from "vue";
+
+import { getConfig } from "../utils";
 
 export const IonIcon = /*@__PURE__*/ defineComponent({
-  name: 'IonIcon',
+  name: "IonIcon",
   props: {
     color: String,
     flipRtl: Boolean,
@@ -15,16 +15,20 @@ export const IonIcon = /*@__PURE__*/ defineComponent({
     mode: String,
     name: String,
     size: String,
-    src: String
+    src: String,
   },
   setup(props, { slots }) {
-    defineCustomElement('ion-icon', IonIconCmp);
+    defineCustomElement();
     return () => {
-      const { icon, ios, md } = props;
+      const { icon, ios, md, mode } = props;
 
       let iconToUse: typeof icon;
+
+      const config = getConfig();
+      const iconMode = mode || config?.get("mode");
+
       if (ios || md) {
-        if (isPlatform('ios')) {
+        if (iconMode === "ios") {
           iconToUse = ios ?? md ?? icon;
         } else {
           iconToUse = md ?? ios ?? icon;
@@ -34,13 +38,13 @@ export const IonIcon = /*@__PURE__*/ defineComponent({
       }
 
       return h(
-        'ion-icon',
+        "ion-icon",
         {
           ...props,
-          icon: iconToUse
+          icon: iconToUse,
         },
         slots
-      )
-    }
-  }
+      );
+    };
+  },
 });

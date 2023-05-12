@@ -1,6 +1,5 @@
 import { Location } from '@angular/common';
 import {
-  ComponentFactoryResolver,
   ComponentRef,
   ElementRef,
   Injector,
@@ -8,14 +7,16 @@ import {
   OnDestroy,
   OnInit,
   ViewContainerRef,
+  inject,
   Attribute,
   Directive,
   EventEmitter,
   Optional,
   Output,
   SkipSelf,
+  EnvironmentInjector,
 } from '@angular/core';
-import { OutletContext, Router, ActivatedRoute, ChildrenOutletContexts, PRIMARY_OUTLET } from '@angular/router';
+import { OutletContext, Router, ActivatedRoute, ChildrenOutletContexts, PRIMARY_OUTLET, Data } from '@angular/router';
 import { componentOnReady } from '@ionic/core';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { distinctUntilChanged, filter, switchMap } from 'rxjs/operators';
@@ -27,11 +28,13 @@ import { NavController } from '../../providers/nav-controller';
 import { StackController } from './stack-controller';
 import { RouteView, getUrl } from './stack-utils';
 
+// TODO(FW-2827): types
+
 @Directive({
   selector: 'ion-router-outlet',
   exportAs: 'outlet',
   // eslint-disable-next-line @angular-eslint/no-inputs-metadata-property
-  inputs: ['animated', 'animation', 'swipeGesture'],
+  inputs: ['animated', 'animation', 'mode', 'swipeGesture'],
 })
 // eslint-disable-next-line @angular-eslint/directive-class-suffix
 export class IonRouterOutlet implements OnDestroy, OnInit {
@@ -59,6 +62,14 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
   // eslint-disable-next-line @angular-eslint/no-output-rename
   @Output('deactivate') deactivateEvents = new EventEmitter<any>();
 
+  private parentContexts = inject(ChildrenOutletContexts);
+  private location = inject(ViewContainerRef);
+  private environmentInjector = inject(EnvironmentInjector);
+
+  // Ionic providers
+  private config = inject(Config);
+  private navCtrl = inject(NavController);
+
   set animation(animation: AnimationBuilder) {
     this.nativeEl.animation = animation;
   }
@@ -80,13 +91,8 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
   }
 
   constructor(
-    private parentContexts: ChildrenOutletContexts,
-    private location: ViewContainerRef,
-    private resolver: ComponentFactoryResolver,
     @Attribute('name') name: string,
     @Optional() @Attribute('tabs') tabs: string,
-    private config: Config,
-    private navCtrl: NavController,
     commonLocation: Location,
     elementRef: ElementRef,
     router: Router,
@@ -97,8 +103,8 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
     this.nativeEl = elementRef.nativeElement;
     this.name = name || PRIMARY_OUTLET;
     this.tabsPrefix = tabs === 'true' ? getUrl(router, activatedRoute) : undefined;
-    this.stackCtrl = new StackController(this.tabsPrefix, this.nativeEl, router, navCtrl, zone, commonLocation);
-    parentContexts.onChildOutletCreated(this.name, this as any);
+    this.stackCtrl = new StackController(this.tabsPrefix, this.nativeEl, router, this.navCtrl, zone, commonLocation);
+    this.parentContexts.onChildOutletCreated(this.name, this as any);
   }
 
   ngOnDestroy(): void {
@@ -110,12 +116,17 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
   }
 
   ngOnInit(): void {
+    this.initializeOutletWithName();
+  }
+
+  // Note: Ionic deviates from the Angular Router implementation here
+  private initializeOutletWithName() {
     if (!this.activated) {
       // If the outlet was not instantiated at the time the route got activated we need to populate
       // the outlet when it is initialized (ie inside a NgIf)
       const context = this.getContext();
       if (context?.route) {
-        this.activateWith(context.route, context.resolver || null);
+        this.activateWith(context.route, context.injector);
       }
     }
 
@@ -144,7 +155,7 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
     return this._activatedRoute as ActivatedRoute;
   }
 
-  get activatedRouteData(): any {
+  get activatedRouteData(): Data {
     if (this._activatedRoute) {
       return this._activatedRoute.snapshot.data;
     }
@@ -206,7 +217,7 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
     }
   }
 
-  activateWith(activatedRoute: ActivatedRoute, resolver: ComponentFactoryResolver | null): void {
+  activateWith(activatedRoute: ActivatedRoute, environmentInjector: EnvironmentInjector | null): void {
     if (this.isActivated) {
       throw new Error('Cannot activate an already activated outlet');
     }
@@ -227,11 +238,13 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
       this.updateActivatedRouteProxy(cmpRef.instance, activatedRoute);
     } else {
       const snapshot = (activatedRoute as any)._futureSnapshot;
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const component = snapshot.routeConfig!.component as any;
-      resolver = resolver || this.resolver;
 
-      const factory = resolver.resolveComponentFactory(component);
+      /**
+       * Angular 14 introduces a new `loadComponent` property to the route config.
+       * This function will assign a `component` property to the route snapshot.
+       * We check for the presence of this property to determine if the route is
+       * using standalone components.
+       */
       const childContexts = this.parentContexts.getOrCreateContext(this.name).children;
 
       // We create an activated route proxy object that will maintain future updates for this component
@@ -240,7 +253,15 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
       const activatedRouteProxy = this.createActivatedRouteProxy(component$, activatedRoute);
 
       const injector = new OutletInjector(activatedRouteProxy, childContexts, this.location.injector);
-      cmpRef = this.activated = this.location.createComponent(factory, this.location.length, injector);
+
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const component = snapshot.routeConfig!.component ?? snapshot.component;
+
+      cmpRef = this.activated = this.location.createComponent(component, {
+        index: this.location.length,
+        injector,
+        environmentInjector: environmentInjector ?? this.environmentInjector,
+      });
 
       // Once the component is created we can push it to our local subject supplied to the proxy
       component$.next(cmpRef.instance);
@@ -255,8 +276,19 @@ export class IonRouterOutlet implements OnDestroy, OnInit {
     }
 
     this.activatedView = enteringView;
+
+    /**
+     * The top outlet is set prior to the entering view's transition completing,
+     * so that when we have nested outlets (e.g. ion-tabs inside an ion-router-outlet),
+     * the tabs outlet will be assigned as the top outlet when a view inside tabs is
+     * activated.
+     *
+     * In this scenario, activeWith is called for both the tabs and the root router outlet.
+     * To avoid a race condition, we assign the top outlet synchronously.
+     */
+    this.navCtrl.setTopOutlet(this);
+
     this.stackCtrl.setActive(enteringView).then((data) => {
-      this.navCtrl.setTopOutlet(this);
       this.activateEvents.emit(cmpRef.instance);
       this.stackEvents.emit(data);
     });

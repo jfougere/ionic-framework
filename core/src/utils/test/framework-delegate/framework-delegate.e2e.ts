@@ -1,35 +1,39 @@
-import { newE2EPage } from '@stencil/core/testing';
+import { expect } from '@playwright/test';
+import { configs, test } from '@utils/test/playwright';
 
-test('framework-delegate: should present modal already at ion-app root', async () => {
-  const page = await newE2EPage({ url: '/src/utils/test/framework-delegate?ionic:_testing=true' });
+configs({ modes: ['md'], directions: ['ltr'] }).forEach(({ title, config }) => {
+  test.describe(title('framework-delegate'), () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/src/utils/test/framework-delegate', config);
+    });
+    test('should present modal already at ion-app root', async ({ page }) => {
+      const ionModalDidPresent = await page.spyOnEvent('ionModalDidPresent');
 
-  const button = await page.find('#button-inline-root');
-  await button.click();
+      await page.click('#button-inline-root');
 
-  const modal = await page.find('#inline-root');
-  expect(modal).not.toBe(null);
-  await modal.waitForVisible();
+      const modal = page.locator('#inline-root');
+      await ionModalDidPresent.next();
+      await expect(modal).toBeVisible();
+    });
 
-});
+    test('should present modal in content', async ({ page }) => {
+      const ionModalDidPresent = await page.spyOnEvent('ionModalDidPresent');
 
-test('framework-delegate: should present modal in content', async () => {
-  const page = await newE2EPage({ url: '/src/utils/test/framework-delegate?ionic:_testing=true' });
+      await page.click('#button-inline-content');
 
-  const button = await page.find('#button-inline-content');
-  await button.click();
+      const modal = page.locator('#inline-content');
+      await ionModalDidPresent.next();
+      await expect(modal).toBeVisible();
+    });
 
-  const modal = await page.find('#inline-content');
-  expect(modal).not.toBe(null);
-  await modal.waitForVisible();
-});
+    test('should present modal via controller', async ({ page }) => {
+      const ionModalDidPresent = await page.spyOnEvent('ionModalDidPresent');
 
-test('framework-delegate: should present modal via controller', async () => {
-  const page = await newE2EPage({ url: '/src/utils/test/framework-delegate?ionic:_testing=true' });
+      await page.click('#button-controller');
 
-  const button = await page.find('#button-controller');
-  await button.click();
-
-  const modal = await page.find('#controller');
-  expect(modal).not.toBe(null);
-  await modal.waitForVisible();
+      const modal = page.locator('#controller');
+      await ionModalDidPresent.next();
+      await expect(modal).toBeVisible();
+    });
+  });
 });

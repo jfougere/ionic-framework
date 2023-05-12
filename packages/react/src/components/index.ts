@@ -1,4 +1,5 @@
-import { IonicConfig, initialize } from '@ionic/core/components';
+import type { IonicConfig } from '@ionic/core/components';
+import { initialize } from '@ionic/core/components';
 
 export {
   // UTILS
@@ -6,7 +7,6 @@ export {
   createGesture,
   iosTransitionAnimation,
   mdTransitionAnimation,
-  IonicSwiper,
   IonicSlides,
   getTimeGivenProgression,
 
@@ -22,90 +22,64 @@ export {
   GestureConfig,
   GestureDetail,
   NavComponentWithProps,
-
   SpinnerTypes,
-
   AccordionGroupCustomEvent,
   AccordionGroupChangeEventDetail,
-
   BreadcrumbCustomEvent,
   BreadcrumbCollapsedClickEventDetail,
-
   ActionSheetOptions,
   ActionSheetButton,
-
   AlertOptions,
   AlertInput,
-  AlertTextareaAttributes,
-  AlertInputAttributes,
   AlertButton,
-
   BackButtonEvent,
-
   CheckboxCustomEvent,
   CheckboxChangeEventDetail,
-
   DatetimeCustomEvent,
   DatetimeChangeEventDetail,
-
   InfiniteScrollCustomEvent,
-
   InputCustomEvent,
   InputChangeEventDetail,
-
   ItemReorderEventDetail,
   ItemReorderCustomEvent,
-
   ItemSlidingCustomEvent,
-
   IonicSafeString,
-
   LoadingOptions,
-
   MenuCustomEvent,
-
   ModalOptions,
-
   NavCustomEvent,
-
   PickerOptions,
   PickerButton,
   PickerColumn,
   PickerColumnOption,
-
   PopoverOptions,
-
   RadioGroupCustomEvent,
   RadioGroupChangeEventDetail,
-
+  RangeCustomEvent,
+  RangeChangeEventDetail,
+  RangeKnobMoveStartEventDetail,
+  RangeKnobMoveEndEventDetail,
   RefresherCustomEvent,
   RefresherEventDetail,
-
   RouterEventDetail,
   RouterCustomEvent,
-
   ScrollBaseCustomEvent,
   ScrollBaseDetail,
   ScrollDetail,
   ScrollCustomEvent,
-
   SearchbarCustomEvent,
   SearchbarChangeEventDetail,
-
+  SearchbarInputEventDetail,
   SegmentChangeEventDetail,
   SegmentCustomEvent,
-
   SelectChangeEventDetail,
   SelectCustomEvent,
-
   TabsCustomEvent,
-
   TextareaChangeEventDetail,
   TextareaCustomEvent,
-
   ToastOptions,
   ToastButton,
-
+  ToastLayout,
   ToggleChangeEventDetail,
   ToggleCustomEvent,
 } from '@ionic/core/components';
@@ -127,6 +101,7 @@ export { IonPopover } from './IonPopover';
 // Custom Components
 export { IonApp } from './IonApp';
 export { IonPage } from './IonPage';
+export { IonNav } from './navigation/IonNav';
 export { IonTabsContext, IonTabsContextState } from './navigation/IonTabsContext';
 export { IonTabs } from './navigation/IonTabs';
 export { IonTabBar } from './navigation/IonTabBar';
@@ -159,7 +134,7 @@ export const setupIonicReact = (config: IonicConfig = {}) => {
    * By default Ionic Framework hides elements that
    * are not hydrated, but in the CE build there is no
    * hydration.
-   * TODO: Remove when all integrations have been
+   * TODO FW-2797: Remove when all integrations have been
    * migrated to CE build.
    */
   if (typeof (document as any) !== 'undefined') {
@@ -167,6 +142,6 @@ export const setupIonicReact = (config: IonicConfig = {}) => {
   }
 
   initialize({
-    ...config
+    ...config,
   });
-}
+};

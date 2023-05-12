@@ -1,3 +1,4 @@
+import { SCROLL_AMOUNT_PADDING } from './common';
 
 const SCROLL_ASSIST_SPEED = 0.3;
 
@@ -9,12 +10,12 @@ export interface ScrollData {
 }
 
 export const getScrollData = (componentEl: HTMLElement, contentEl: HTMLElement, keyboardHeight: number): ScrollData => {
-  const itemEl = componentEl.closest('ion-item,[ion-item]') as HTMLElement || componentEl;
+  const itemEl = (componentEl.closest('ion-item,[ion-item]') as HTMLElement) ?? componentEl;
   return calcScrollData(
     itemEl.getBoundingClientRect(),
     contentEl.getBoundingClientRect(),
     keyboardHeight,
-    (componentEl as any).ownerDocument.defaultView.innerHeight
+    (componentEl as any).ownerDocument.defaultView.innerHeight // TODO(FW-2832): type
   );
 };
 
@@ -34,18 +35,16 @@ const calcScrollData = (
 
   // compute safe area
   const safeAreaTop = visibleAreaTop + 15;
-  const safeAreaBottom = visibleAreaBottom * 0.75;
+  const safeAreaBottom = visibleAreaBottom - SCROLL_AMOUNT_PADDING;
 
   // figure out if each edge of the input is within the safe area
   const distanceToBottom = safeAreaBottom - inputBottom;
   const distanceToTop = safeAreaTop - inputTop;
 
   // desiredScrollAmount is the negated distance to the safe area according to our calculations.
-  const desiredScrollAmount = Math.round((distanceToBottom < 0)
-    ? -distanceToBottom
-    : (distanceToTop > 0)
-      ? -distanceToTop
-      : 0);
+  const desiredScrollAmount = Math.round(
+    distanceToBottom < 0 ? -distanceToBottom : distanceToTop > 0 ? -distanceToTop : 0
+  );
 
   // our calculations make some assumptions that aren't always true, like the keyboard being closed when an input
   // gets focus, so make sure we don't scroll the input above the visible area
@@ -59,6 +58,6 @@ const calcScrollData = (
     scrollAmount,
     scrollDuration,
     scrollPadding: keyboardHeight,
-    inputSafeY: -(inputTop - safeAreaTop) + 4
+    inputSafeY: -(inputTop - safeAreaTop) + 4,
   };
 };

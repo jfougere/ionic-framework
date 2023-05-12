@@ -1,16 +1,33 @@
-import { Component, ComponentInterface, Element, Event, EventEmitter, Host, Method, Prop, h } from '@stencil/core';
+import type { ComponentInterface, EventEmitter } from '@stencil/core';
+import { Watch, Component, Element, Event, Host, Method, Prop, h } from '@stencil/core';
 
 import { config } from '../../global/config';
 import { getIonMode } from '../../global/ionic-global';
-import { AnimationBuilder, LoadingAttributes, OverlayEventDetail, OverlayInterface, SpinnerTypes } from '../../interface';
-import { BACKDROP, dismiss, eventMethod, prepareOverlay, present } from '../../utils/overlays';
-import { IonicSafeString, sanitizeDOMString } from '../../utils/sanitization';
+import type { AnimationBuilder, FrameworkDelegate, OverlayInterface } from '../../interface';
+import { ENABLE_HTML_CONTENT_DEFAULT } from '../../utils/config';
+import { raf } from '../../utils/helpers';
+import {
+  BACKDROP,
+  dismiss,
+  eventMethod,
+  prepareOverlay,
+  present,
+  createDelegateController,
+  createTriggerController,
+  setOverlayId,
+} from '../../utils/overlays';
+import type { OverlayEventDetail } from '../../utils/overlays-interface';
+import type { IonicSafeString } from '../../utils/sanitization';
+import { sanitizeDOMString } from '../../utils/sanitization';
 import { getClassMap } from '../../utils/theme';
+import type { SpinnerTypes } from '../spinner/spinner-configs';
 
 import { iosEnterAnimation } from './animations/ios.enter';
 import { iosLeaveAnimation } from './animations/ios.leave';
 import { mdEnterAnimation } from './animations/md.enter';
 import { mdLeaveAnimation } from './animations/md.leave';
+
+// TODO(FW-2832): types
 
 /**
  * @virtualProp {"ios" | "md"} mode - The mode determines which platform styles to use.
@@ -19,12 +36,16 @@ import { mdLeaveAnimation } from './animations/md.leave';
   tag: 'ion-loading',
   styleUrls: {
     ios: 'loading.ios.scss',
-    md: 'loading.md.scss'
+    md: 'loading.md.scss',
   },
-  scoped: true
+  scoped: true,
 })
 export class Loading implements ComponentInterface, OverlayInterface {
-  private durationTimeout: any;
+  private readonly delegateController = createDelegateController(this);
+  private readonly triggerController = createTriggerController();
+  private customHTMLEnabled = config.get('innerHTMLTemplatesEnabled', ENABLE_HTML_CONTENT_DEFAULT);
+  private durationTimeout?: ReturnType<typeof setTimeout>;
+  private currentTransition?: Promise<any>;
 
   presented = false;
   lastFocus?: HTMLElement;
@@ -33,6 +54,12 @@ export class Loading implements ComponentInterface, OverlayInterface {
 
   /** @internal */
   @Prop() overlayIndex!: number;
+
+  /** @internal */
+  @Prop() delegate?: FrameworkDelegate;
+
+  /** @internal */
+  @Prop() hasController = false;
 
   /**
    * If `true`, the keyboard will be automatically dismissed when the overlay is presented.
@@ -51,6 +78,11 @@ export class Loading implements ComponentInterface, OverlayInterface {
 
   /**
    * Optional text content to display in the loading indicator.
+   *
+   * This property accepts custom HTML as a string.
+   * Content is parsed as plaintext by default.
+   * `innerHTMLTemplatesEnabled` must be set to `true` in the Ionic config
+   * before custom HTML can be used.
    */
   @Prop() message?: string | IonicSafeString;
 
@@ -95,7 +127,37 @@ export class Loading implements ComponentInterface, OverlayInterface {
   /**
    * Additional attributes to pass to the loader.
    */
-  @Prop() htmlAttributes?: LoadingAttributes;
+  @Prop() htmlAttributes?: { [key: string]: any };
+
+  /**
+   * If `true`, the loading indicator will open. If `false`, the loading indicator will close.
+   * Use this if you need finer grained control over presentation, otherwise
+   * just use the loadingController or the `trigger` property.
+   * Note: `isOpen` will not automatically be set back to `false` when
+   * the loading indicator dismisses. You will need to do that in your code.
+   */
+  @Prop() isOpen = false;
+  @Watch('isOpen')
+  onIsOpenChange(newValue: boolean, oldValue: boolean) {
+    if (newValue === true && oldValue === false) {
+      this.present();
+    } else if (newValue === false && oldValue === true) {
+      this.dismiss();
+    }
+  }
+
+  /**
+   * An ID corresponding to the trigger element that
+   * causes the loading indicator to open when clicked.
+   */
+  @Prop() trigger: string | undefined;
+  @Watch('trigger')
+  triggerChanged() {
+    const { trigger, el, triggerController } = this;
+    if (trigger) {
+      triggerController.addClickListener(el, trigger);
+    }
+  }
 
   /**
    * Emitted after the loading has presented.
@@ -117,18 +179,55 @@ export class Loading implements ComponentInterface, OverlayInterface {
    */
   @Event({ eventName: 'ionLoadingDidDismiss' }) didDismiss!: EventEmitter<OverlayEventDetail>;
 
+  /**
+   * Emitted after the loading indicator has presented.
+   * Shorthand for ionLoadingWillDismiss.
+   */
+  @Event({ eventName: 'didPresent' }) didPresentShorthand!: EventEmitter<void>;
+
+  /**
+   * Emitted before the loading indicator has presented.
+   * Shorthand for ionLoadingWillPresent.
+   */
+  @Event({ eventName: 'willPresent' }) willPresentShorthand!: EventEmitter<void>;
+
+  /**
+   * Emitted before the loading indicator has dismissed.
+   * Shorthand for ionLoadingWillDismiss.
+   */
+  @Event({ eventName: 'willDismiss' }) willDismissShorthand!: EventEmitter<OverlayEventDetail>;
+
+  /**
+   * Emitted after the loading indicator has dismissed.
+   * Shorthand for ionLoadingDidDismiss.
+   */
+  @Event({ eventName: 'didDismiss' }) didDismissShorthand!: EventEmitter<OverlayEventDetail>;
+
   connectedCallback() {
     prepareOverlay(this.el);
+    this.triggerChanged();
   }
 
   componentWillLoad() {
     if (this.spinner === undefined) {
       const mode = getIonMode(this);
-      this.spinner = config.get(
-        'loadingSpinner',
-        config.get('spinner', mode === 'ios' ? 'lines' : 'crescent')
-      );
+      this.spinner = config.get('loadingSpinner', config.get('spinner', mode === 'ios' ? 'lines' : 'crescent'));
     }
+    setOverlayId(this.el);
+  }
+
+  componentDidLoad() {
+    /**
+     * If loading indicator was rendered with isOpen="true"
+     * then we should open loading indicator immediately.
+     */
+    if (this.isOpen === true) {
+      raf(() => this.present());
+    }
+  }
+
+  disconnectedCallback() {
+    this.triggerController.removeClickListener();
   }
 
   /**
@@ -136,14 +235,29 @@ export class Loading implements ComponentInterface, OverlayInterface {
    */
   @Method()
   async present(): Promise<void> {
-    await present(this, 'loadingEnter', iosEnterAnimation, mdEnterAnimation, undefined);
+    /**
+     * When using an inline loading indicator
+     * and dismissing a loading indicator it is possible to
+     * quickly present the loading indicator while it is
+     * dismissing. We need to await any current
+     * transition to allow the dismiss to finish
+     * before presenting again.
+     */
+    if (this.currentTransition !== undefined) {
+      await this.currentTransition;
+    }
+
+    await this.delegateController.attachViewToDom();
+
+    this.currentTransition = present(this, 'loadingEnter', iosEnterAnimation, mdEnterAnimation);
+
+    await this.currentTransition;
 
     if (this.duration > 0) {
-      this.durationTimeout = setTimeout(
-        () => this.dismiss(),
-        this.duration + 10
-      );
+      this.durationTimeout = setTimeout(() => this.dismiss(), this.duration + 10);
     }
+
+    this.currentTransition = undefined;
   }
 
   /**
@@ -156,11 +270,19 @@ export class Loading implements ComponentInterface, OverlayInterface {
    * Some examples include: ``"cancel"`, `"destructive"`, "selected"`, and `"backdrop"`.
    */
   @Method()
-  dismiss(data?: any, role?: string): Promise<boolean> {
+  async dismiss(data?: any, role?: string): Promise<boolean> {
     if (this.durationTimeout) {
       clearTimeout(this.durationTimeout);
     }
-    return dismiss(this, data, role, 'loadingLeave', iosLeaveAnimation, mdLeaveAnimation);
+    this.currentTransition = dismiss(this, data, role, 'loadingLeave', iosLeaveAnimation, mdLeaveAnimation);
+
+    const dismissed = await this.currentTransition;
+
+    if (dismissed) {
+      this.delegateController.removeViewFromDom();
+    }
+
+    return dismissed;
   }
 
   /**
@@ -181,38 +303,61 @@ export class Loading implements ComponentInterface, OverlayInterface {
 
   private onBackdropTap = () => {
     this.dismiss(undefined, BACKDROP);
+  };
+
+  private renderLoadingMessage(msgId: string) {
+    const { customHTMLEnabled, message } = this;
+    if (customHTMLEnabled) {
+      return <div class="loading-content" id={msgId} innerHTML={sanitizeDOMString(message)}></div>;
+    }
+
+    return (
+      <div class="loading-content" id={msgId}>
+        {message}
+      </div>
+    );
   }
 
   render() {
-    const { message, spinner, htmlAttributes } = this;
+    const { message, spinner, htmlAttributes, overlayIndex } = this;
     const mode = getIonMode(this);
+    const msgId = `loading-${overlayIndex}-msg`;
+    /**
+     * If the message is defined, use that as the label.
+     * Otherwise, don't set aria-labelledby.
+     */
+    const ariaLabelledBy = message !== undefined ? msgId : null;
+
     return (
       <Host
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={ariaLabelledBy}
         tabindex="-1"
-        {...htmlAttributes as any}
+        {...(htmlAttributes as any)}
         style={{
-          zIndex: `${40000 + this.overlayIndex}`
+          zIndex: `${40000 + this.overlayIndex}`,
         }}
         onIonBackdropTap={this.onBackdropTap}
         class={{
           ...getClassMap(this.cssClass),
           [mode]: true,
           'overlay-hidden': true,
-          'loading-translucent': this.translucent
+          'loading-translucent': this.translucent,
         }}
       >
         <ion-backdrop visible={this.showBackdrop} tappable={this.backdropDismiss} />
 
         <div tabindex="0"></div>
 
-        <div class="loading-wrapper ion-overlay-wrapper" role="dialog">
+        <div class="loading-wrapper ion-overlay-wrapper">
           {spinner && (
             <div class="loading-spinner">
               <ion-spinner name={spinner} aria-hidden="true" />
             </div>
           )}
 
-          {message && <div class="loading-content" innerHTML={sanitizeDOMString(message)}></div>}
+          {message !== undefined && this.renderLoadingMessage(msgId)}
         </div>
 
         <div tabindex="0"></div>

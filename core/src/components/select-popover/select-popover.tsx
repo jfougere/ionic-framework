@@ -1,9 +1,13 @@
-import { Component, ComponentInterface, Host, Listen, Prop, h } from '@stencil/core';
+import type { ComponentInterface } from '@stencil/core';
+import { Element, Component, Host, Prop, h } from '@stencil/core';
 
 import { getIonMode } from '../../global/ionic-global';
-import { SelectPopoverOption } from '../../interface';
 import { safeCall } from '../../utils/overlays';
 import { getClassMap } from '../../utils/theme';
+import type { CheckboxCustomEvent } from '../checkbox/checkbox-interface';
+import type { RadioGroupCustomEvent } from '../radio-group/radio-group-interface';
+
+import type { SelectPopoverOption } from './select-popover-interface';
 
 /**
  * @internal
@@ -12,11 +16,12 @@ import { getClassMap } from '../../utils/theme';
   tag: 'ion-select-popover',
   styleUrls: {
     ios: 'select-popover.ios.scss',
-    md: 'select-popover.md.scss'
+    md: 'select-popover.md.scss',
   },
-  scoped: true
+  scoped: true,
 })
 export class SelectPopover implements ComponentInterface {
+  @Element() el!: HTMLIonSelectPopoverElement;
   /**
    * The header text of the popover
    */
@@ -42,15 +47,9 @@ export class SelectPopover implements ComponentInterface {
    */
   @Prop() options: SelectPopoverOption[] = [];
 
-  @Listen('ionChange')
-  onSelect(ev: any) {
-    this.setChecked(ev);
-    this.callOptionHandler(ev);
-  }
-
-  private findOptionFromEvent(ev: any) {
+  private findOptionFromEvent(ev: CheckboxCustomEvent | RadioGroupCustomEvent) {
     const { options } = this;
-    return options.find(o => o.value === ev.target.value);
+    return options.find((o) => o.value === ev.target.value);
   }
 
   /**
@@ -58,25 +57,27 @@ export class SelectPopover implements ComponentInterface {
    * of the selected option(s) and return it in the option
    * handler
    */
-  private callOptionHandler(ev: any) {
+  private callOptionHandler(ev: CheckboxCustomEvent | RadioGroupCustomEvent) {
     const option = this.findOptionFromEvent(ev);
     const values = this.getValues(ev);
 
-    if (option && option.handler) {
+    if (option?.handler) {
       safeCall(option.handler, values);
     }
   }
 
   /**
-   * This is required when selecting a radio that is already
-   * selected because it will not trigger the ionChange event
-   * but we still want to close the popover
+   * Dismisses the host popover that the `ion-select-popover`
+   * is rendered within.
    */
-  private rbClick(ev: any) {
-    this.callOptionHandler(ev);
+  private dismissParentPopover() {
+    const popover = this.el.closest('ion-popover');
+    if (popover) {
+      popover.dismiss();
+    }
   }
 
-  private setChecked(ev: any): void {
+  private setChecked(ev: CheckboxCustomEvent): void {
     const { multiple } = this;
     const option = this.findOptionFromEvent(ev);
 
@@ -87,13 +88,13 @@ export class SelectPopover implements ComponentInterface {
     }
   }
 
-  private getValues(ev: any): any | any[] | null {
+  private getValues(ev: CheckboxCustomEvent | RadioGroupCustomEvent): string | string[] | undefined {
     const { multiple, options } = this;
 
     if (multiple) {
       // this is a popover with checkboxes (multiple value select)
       // return an array of all the checked values
-      return options.filter(o => o.checked).map(o => o.value);
+      return options.filter((o) => o.checked).map((o) => o.value);
     }
 
     // this is a popover with radio buttons (single value select)
@@ -106,50 +107,60 @@ export class SelectPopover implements ComponentInterface {
     const { multiple } = this;
 
     switch (multiple) {
-      case true: return this.renderCheckboxOptions(options);
-      default: return this.renderRadioOptions(options);
+      case true:
+        return this.renderCheckboxOptions(options);
+      default:
+        return this.renderRadioOptions(options);
     }
   }
 
   renderCheckboxOptions(options: SelectPopoverOption[]) {
-    return (
-      options.map(option =>
-        <ion-item class={getClassMap(option.cssClass)}>
-          <ion-checkbox
-            slot="start"
-            value={option.value}
-            disabled={option.disabled}
-            checked={option.checked}
-          >
-          </ion-checkbox>
-          <ion-label>
-            {option.text}
-          </ion-label>
-        </ion-item>
-      )
-    )
+    return options.map((option) => (
+      <ion-item class={getClassMap(option.cssClass)}>
+        <ion-checkbox
+          slot="start"
+          value={option.value}
+          disabled={option.disabled}
+          checked={option.checked}
+          legacy={true}
+          onIonChange={(ev) => {
+            this.setChecked(ev);
+            this.callOptionHandler(ev);
+          }}
+        ></ion-checkbox>
+        <ion-label>{option.text}</ion-label>
+      </ion-item>
+    ));
   }
 
   renderRadioOptions(options: SelectPopoverOption[]) {
-    const checked = options.filter(o => o.checked).map(o => o.value)[0];
+    const checked = options.filter((o) => o.checked).map((o) => o.value)[0];
 
     return (
-      <ion-radio-group value={checked}>
-        {options.map(option =>
+      <ion-radio-group value={checked} onIonChange={(ev) => this.callOptionHandler(ev)}>
+        {options.map((option) => (
           <ion-item class={getClassMap(option.cssClass)}>
-            <ion-label>
-              {option.text}
-            </ion-label>
+            <ion-label>{option.text}</ion-label>
             <ion-radio
               value={option.value}
               disabled={option.disabled}
-              onClick={ev => this.rbClick(ev)}
-            >
-            </ion-radio>
+              legacy={true}
+              onClick={() => this.dismissParentPopover()}
+              onKeyUp={(ev) => {
+                if (ev.key === ' ') {
+                  /**
+                   * Selecting a radio option with keyboard navigation,
+                   * either through the Enter or Space keys, should
+                   * dismiss the popover.
+                   */
+                  this.dismissParentPopover();
+                }
+              }}
+            ></ion-radio>
           </ion-item>
-        )}
+        ))}
       </ion-radio-group>
-    )
+    );
   }
 
   render() {
@@ -160,14 +171,14 @@ export class SelectPopover implements ComponentInterface {
       <Host class={getIonMode(this)}>
         <ion-list>
           {header !== undefined && <ion-list-header>{header}</ion-list-header>}
-          { hasSubHeaderOrMessage &&
+          {hasSubHeaderOrMessage && (
             <ion-item>
               <ion-label class="ion-text-wrap">
                 {subHeader !== undefined && <h3>{subHeader}</h3>}
                 {message !== undefined && <p>{message}</p>}
               </ion-label>
             </ion-item>
-          }
+          )}
           {this.renderOptions(options)}
         </ion-list>
       </Host>

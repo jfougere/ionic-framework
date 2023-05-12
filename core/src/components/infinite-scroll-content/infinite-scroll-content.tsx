@@ -1,18 +1,22 @@
-import { Component, ComponentInterface, Host, Prop, h } from '@stencil/core';
+import type { ComponentInterface } from '@stencil/core';
+import { Component, Host, Prop, h } from '@stencil/core';
 
 import { config } from '../../global/config';
 import { getIonMode } from '../../global/ionic-global';
-import { SpinnerTypes } from '../../interface';
-import { IonicSafeString, sanitizeDOMString } from '../../utils/sanitization';
+import { ENABLE_HTML_CONTENT_DEFAULT } from '../../utils/config';
+import type { IonicSafeString } from '../../utils/sanitization';
+import { sanitizeDOMString } from '../../utils/sanitization';
+import type { SpinnerTypes } from '../spinner/spinner-configs';
 
 @Component({
   tag: 'ion-infinite-scroll-content',
   styleUrls: {
     ios: 'infinite-scroll-content.ios.scss',
-    md: 'infinite-scroll-content.md.scss'
-  }
+    md: 'infinite-scroll-content.md.scss',
+  },
 })
 export class InfiniteScrollContent implements ComponentInterface {
+  private customHTMLEnabled = config.get('innerHTMLTemplatesEnabled', ENABLE_HTML_CONTENT_DEFAULT);
 
   /**
    * An animated SVG spinner that shows while loading.
@@ -27,6 +31,11 @@ export class InfiniteScrollContent implements ComponentInterface {
    * `&lt;Ionic&gt;`
    *
    * For more information: [Security Documentation](https://ionicframework.com/docs/faq/security)
+   *
+   * This property accepts custom HTML as a string.
+   * Content is parsed as plaintext by default.
+   * `innerHTMLTemplatesEnabled` must be set to `true` in the Ionic config
+   * before custom HTML can be used.
    */
   @Prop() loadingText?: string | IonicSafeString;
 
@@ -40,6 +49,15 @@ export class InfiniteScrollContent implements ComponentInterface {
     }
   }
 
+  private renderLoadingText() {
+    const { customHTMLEnabled, loadingText } = this;
+    if (customHTMLEnabled) {
+      return <div class="infinite-loading-text" innerHTML={sanitizeDOMString(loadingText)}></div>;
+    }
+
+    return <div class="infinite-loading-text">{this.loadingText}</div>;
+  }
+
   render() {
     const mode = getIonMode(this);
     return (
@@ -48,7 +66,7 @@ export class InfiniteScrollContent implements ComponentInterface {
           [mode]: true,
 
           // Used internally for styling
-          [`infinite-scroll-content-${mode}`]: true
+          [`infinite-scroll-content-${mode}`]: true,
         }}
       >
         <div class="infinite-loading">
@@ -57,9 +75,7 @@ export class InfiniteScrollContent implements ComponentInterface {
               <ion-spinner name={this.loadingSpinner} />
             </div>
           )}
-          {this.loadingText && (
-            <div class="infinite-loading-text" innerHTML={sanitizeDOMString(this.loadingText)} />
-          )}
+          {this.loadingText !== undefined && this.renderLoadingText()}
         </div>
       </Host>
     );

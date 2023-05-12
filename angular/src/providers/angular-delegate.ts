@@ -1,11 +1,13 @@
 import {
   ApplicationRef,
-  ComponentFactoryResolver,
   NgZone,
-  ViewContainerRef,
   Injectable,
-  InjectionToken,
   Injector,
+  EnvironmentInjector,
+  inject,
+  createComponent,
+  InjectionToken,
+  ComponentRef,
 } from '@angular/core';
 import {
   FrameworkDelegate,
@@ -18,45 +20,69 @@ import {
 
 import { NavParams } from '../directives/navigation/nav-params';
 
+// TODO(FW-2827): types
+
 @Injectable()
 export class AngularDelegate {
-  constructor(private zone: NgZone, private appRef: ApplicationRef) {}
+  private zone = inject(NgZone);
+  private applicationRef = inject(ApplicationRef);
 
   create(
-    resolver: ComponentFactoryResolver,
+    environmentInjector: EnvironmentInjector,
     injector: Injector,
-    location?: ViewContainerRef
+    elementReferenceKey?: string
   ): AngularFrameworkDelegate {
-    return new AngularFrameworkDelegate(resolver, injector, location, this.appRef, this.zone);
+    return new AngularFrameworkDelegate(
+      environmentInjector,
+      injector,
+      this.applicationRef,
+      this.zone,
+      elementReferenceKey
+    );
   }
 }
 
 export class AngularFrameworkDelegate implements FrameworkDelegate {
-  private elRefMap = new WeakMap<HTMLElement, any>();
+  private elRefMap = new WeakMap<HTMLElement, ComponentRef<any>>();
   private elEventsMap = new WeakMap<HTMLElement, () => void>();
 
   constructor(
-    private resolver: ComponentFactoryResolver,
+    private environmentInjector: EnvironmentInjector,
     private injector: Injector,
-    private location: ViewContainerRef | undefined,
-    private appRef: ApplicationRef,
-    private zone: NgZone
+    private applicationRef: ApplicationRef,
+    private zone: NgZone,
+    private elementReferenceKey?: string
   ) {}
 
   attachViewToDom(container: any, component: any, params?: any, cssClasses?: string[]): Promise<any> {
     return this.zone.run(() => {
       return new Promise((resolve) => {
+        const componentProps = {
+          ...params,
+        };
+
+        /**
+         * Ionic Angular passes a reference to a modal
+         * or popover that can be accessed using a
+         * variable in the overlay component. If
+         * elementReferenceKey is defined, then we should
+         * pass a reference to the component using
+         * elementReferenceKey as the key.
+         */
+        if (this.elementReferenceKey !== undefined) {
+          componentProps[this.elementReferenceKey] = container;
+        }
+
         const el = attachView(
           this.zone,
-          this.resolver,
+          this.environmentInjector,
           this.injector,
-          this.location,
-          this.appRef,
+          this.applicationRef,
           this.elRefMap,
           this.elEventsMap,
           container,
           component,
-          params,
+          componentProps,
           cssClasses
         );
         resolve(el);
@@ -85,25 +111,37 @@ export class AngularFrameworkDelegate implements FrameworkDelegate {
 
 export const attachView = (
   zone: NgZone,
-  resolver: ComponentFactoryResolver,
+  environmentInjector: EnvironmentInjector,
   injector: Injector,
-  location: ViewContainerRef | undefined,
-  appRef: ApplicationRef,
-  elRefMap: WeakMap<HTMLElement, any>,
+  applicationRef: ApplicationRef,
+  elRefMap: WeakMap<HTMLElement, ComponentRef<any>>,
   elEventsMap: WeakMap<HTMLElement, () => void>,
   container: any,
   component: any,
   params: any,
   cssClasses: string[] | undefined
 ): any => {
-  const factory = resolver.resolveComponentFactory(component);
+  /**
+   * Wraps the injector with a custom injector that
+   * provides NavParams to the component.
+   *
+   * NavParams is a legacy feature from Ionic v3 that allows
+   * Angular developers to provide data to a component
+   * and access it by providing NavParams as a dependency
+   * in the constructor.
+   *
+   * The modern approach is to access the data directly
+   * from the component's class instance.
+   */
   const childInjector = Injector.create({
     providers: getProviders(params),
     parent: injector,
   });
-  const componentRef = location
-    ? location.createComponent(factory, location.length, childInjector)
-    : factory.create(childInjector);
+
+  const componentRef = createComponent<any>(component, {
+    environmentInjector,
+    elementInjector: childInjector,
+  });
 
   const instance = componentRef.instance;
   const hostElement = componentRef.location.nativeElement;
@@ -111,17 +149,15 @@ export const attachView = (
     Object.assign(instance, params);
   }
   if (cssClasses) {
-    for (const clazz of cssClasses) {
-      hostElement.classList.add(clazz);
+    for (const cssClass of cssClasses) {
+      hostElement.classList.add(cssClass);
     }
   }
   const unbindEvents = bindLifecycleEvents(zone, instance, hostElement);
   container.appendChild(hostElement);
 
-  if (!location) {
-    appRef.attachView(componentRef.hostView);
-  }
-  componentRef.changeDetectorRef.reattach();
+  applicationRef.attachView(componentRef.hostView);
+
   elRefMap.set(hostElement, componentRef);
   elEventsMap.set(hostElement, unbindEvents);
   return hostElement;

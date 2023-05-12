@@ -19,9 +19,6 @@ $font-family-base:                  var(--ion-font-family, inherit) !default;
 // Global app direction
 $app-direction: null !default;
 
-// Global font path
-$font-path: "/dist/fonts" !default;
-
 // Hairlines width
 $hairlines-width: .55px !default;
 
@@ -34,6 +31,11 @@ $screen-breakpoints: (
   lg: 992px,
   xl: 1200px
 ) !default;
+
+// Input placeholder opacity
+// Ensures that the placeholder has the
+// correct color contrast against the background.
+$placeholder-opacity: 0.6 !default;
 
 
 // Z-Index

@@ -2,9 +2,9 @@ import React from 'react';
 
 import { NavContext } from '../contexts/NavContext';
 
-import { IonicReactProps } from './IonicReactProps';
+import type { IonicReactProps } from './IonicReactProps';
 import { IonIconInner } from './inner-proxies';
-import { createForwardRef, isPlatform } from './utils';
+import { createForwardRef, getConfig } from './utils';
 
 interface IonIconProps {
   color?: string;
@@ -27,17 +27,22 @@ class IonIconContainer extends React.PureComponent<InternalProps> {
   constructor(props: InternalProps) {
     super(props);
     if (this.props.name) {
-      console.warn('In Ionic React, you import icons from "ionicons/icons" and set the icon you imported to the "icon" property. Setting the "name" property has no effect.');
+      console.warn(
+        'In Ionic React, you import icons from "ionicons/icons" and set the icon you imported to the "icon" property. Setting the "name" property has no effect.'
+      );
     }
   }
 
   render() {
-    const { icon, ios, md, ...rest } = this.props;
+    const { icon, ios, md, mode, ...rest } = this.props;
 
     let iconToUse: typeof icon;
 
+    const config = getConfig();
+    const iconMode = mode || config?.get('mode');
+
     if (ios || md) {
-      if (isPlatform('ios')) {
+      if (iconMode === 'ios') {
         iconToUse = ios ?? md ?? icon;
       } else {
         iconToUse = md ?? ios ?? icon;

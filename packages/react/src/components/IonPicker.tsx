@@ -1,9 +1,9 @@
-import { PickerOptions, pickerController } from '@ionic/core/components';
-import { IonPicker as IonPickerCmp } from '@ionic/core/components/ion-picker.js';
+import type { JSX } from '@ionic/core/components';
+import { defineCustomElement } from '@ionic/core/components/ion-picker.js';
 
-import { createControllerComponent } from './createControllerComponent';
+import { createInlineOverlayComponent } from './createInlineOverlayComponent';
 
-export const IonPicker = /*@__PURE__*/ createControllerComponent<
-  PickerOptions,
-  HTMLIonPickerElement
->('ion-picker', pickerController, IonPickerCmp);
+export const IonPicker = /*@__PURE__*/ createInlineOverlayComponent<JSX.IonPicker, HTMLIonPickerElement>(
+  'ion-picker',
+  defineCustomElement
+);

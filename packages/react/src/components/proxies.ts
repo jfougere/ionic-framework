@@ -21,6 +21,7 @@ import { defineCustomElement as defineIonChip } from '@ionic/core/components/ion
 import { defineCustomElement as defineIonCol } from '@ionic/core/components/ion-col.js';
 import { defineCustomElement as defineIonContent } from '@ionic/core/components/ion-content.js';
 import { defineCustomElement as defineIonDatetime } from '@ionic/core/components/ion-datetime.js';
+import { defineCustomElement as defineIonDatetimeButton } from '@ionic/core/components/ion-datetime-button.js';
 import { defineCustomElement as defineIonFab } from '@ionic/core/components/ion-fab.js';
 import { defineCustomElement as defineIonFabList } from '@ionic/core/components/ion-fab-list.js';
 import { defineCustomElement as defineIonFooter } from '@ionic/core/components/ion-footer.js';
@@ -59,8 +60,6 @@ import { defineCustomElement as defineIonSegmentButton } from '@ionic/core/compo
 import { defineCustomElement as defineIonSelect } from '@ionic/core/components/ion-select.js';
 import { defineCustomElement as defineIonSelectOption } from '@ionic/core/components/ion-select-option.js';
 import { defineCustomElement as defineIonSkeletonText } from '@ionic/core/components/ion-skeleton-text.js';
-import { defineCustomElement as defineIonSlide } from '@ionic/core/components/ion-slide.js';
-import { defineCustomElement as defineIonSlides } from '@ionic/core/components/ion-slides.js';
 import { defineCustomElement as defineIonSpinner } from '@ionic/core/components/ion-spinner.js';
 import { defineCustomElement as defineIonSplitPane } from '@ionic/core/components/ion-split-pane.js';
 import { defineCustomElement as defineIonTab } from '@ionic/core/components/ion-tab.js';
@@ -70,7 +69,6 @@ import { defineCustomElement as defineIonThumbnail } from '@ionic/core/component
 import { defineCustomElement as defineIonTitle } from '@ionic/core/components/ion-title.js';
 import { defineCustomElement as defineIonToggle } from '@ionic/core/components/ion-toggle.js';
 import { defineCustomElement as defineIonToolbar } from '@ionic/core/components/ion-toolbar.js';
-import { defineCustomElement as defineIonVirtualScroll } from '@ionic/core/components/ion-virtual-scroll.js';
 
 export const IonAccordion = /*@__PURE__*/createReactComponent<JSX.IonAccordion, HTMLIonAccordionElement>('ion-accordion', undefined, undefined, defineIonAccordion);
 export const IonAccordionGroup = /*@__PURE__*/createReactComponent<JSX.IonAccordionGroup, HTMLIonAccordionGroupElement>('ion-accordion-group', undefined, undefined, defineIonAccordionGroup);
@@ -88,6 +86,7 @@ export const IonChip = /*@__PURE__*/createReactComponent<JSX.IonChip, HTMLIonChi
 export const IonCol = /*@__PURE__*/createReactComponent<JSX.IonCol, HTMLIonColElement>('ion-col', undefined, undefined, defineIonCol);
 export const IonContent = /*@__PURE__*/createReactComponent<JSX.IonContent, HTMLIonContentElement>('ion-content', undefined, undefined, defineIonContent);
 export const IonDatetime = /*@__PURE__*/createReactComponent<JSX.IonDatetime, HTMLIonDatetimeElement>('ion-datetime', undefined, undefined, defineIonDatetime);
+export const IonDatetimeButton = /*@__PURE__*/createReactComponent<JSX.IonDatetimeButton, HTMLIonDatetimeButtonElement>('ion-datetime-button', undefined, undefined, defineIonDatetimeButton);
 export const IonFab = /*@__PURE__*/createReactComponent<JSX.IonFab, HTMLIonFabElement>('ion-fab', undefined, undefined, defineIonFab);
 export const IonFabList = /*@__PURE__*/createReactComponent<JSX.IonFabList, HTMLIonFabListElement>('ion-fab-list', undefined, undefined, defineIonFabList);
 export const IonFooter = /*@__PURE__*/createReactComponent<JSX.IonFooter, HTMLIonFooterElement>('ion-footer', undefined, undefined, defineIonFooter);
@@ -126,8 +125,6 @@ export const IonSegmentButton = /*@__PURE__*/createReactComponent<JSX.IonSegment
 export const IonSelect = /*@__PURE__*/createReactComponent<JSX.IonSelect, HTMLIonSelectElement>('ion-select', undefined, undefined, defineIonSelect);
 export const IonSelectOption = /*@__PURE__*/createReactComponent<JSX.IonSelectOption, HTMLIonSelectOptionElement>('ion-select-option', undefined, undefined, defineIonSelectOption);
 export const IonSkeletonText = /*@__PURE__*/createReactComponent<JSX.IonSkeletonText, HTMLIonSkeletonTextElement>('ion-skeleton-text', undefined, undefined, defineIonSkeletonText);
-export const IonSlide = /*@__PURE__*/createReactComponent<JSX.IonSlide, HTMLIonSlideElement>('ion-slide', undefined, undefined, defineIonSlide);
-export const IonSlides = /*@__PURE__*/createReactComponent<JSX.IonSlides, HTMLIonSlidesElement>('ion-slides', undefined, undefined, defineIonSlides);
 export const IonSpinner = /*@__PURE__*/createReactComponent<JSX.IonSpinner, HTMLIonSpinnerElement>('ion-spinner', undefined, undefined, defineIonSpinner);
 export const IonSplitPane = /*@__PURE__*/createReactComponent<JSX.IonSplitPane, HTMLIonSplitPaneElement>('ion-split-pane', undefined, undefined, defineIonSplitPane);
 export const IonTab = /*@__PURE__*/createReactComponent<JSX.IonTab, HTMLIonTabElement>('ion-tab', undefined, undefined, defineIonTab);
@@ -137,4 +134,3 @@ export const IonThumbnail = /*@__PURE__*/createReactComponent<JSX.IonThumbnail, 
 export const IonTitle = /*@__PURE__*/createReactComponent<JSX.IonTitle, HTMLIonTitleElement>('ion-title', undefined, undefined, defineIonTitle);
 export const IonToggle = /*@__PURE__*/createReactComponent<JSX.IonToggle, HTMLIonToggleElement>('ion-toggle', undefined, undefined, defineIonToggle);
 export const IonToolbar = /*@__PURE__*/createReactComponent<JSX.IonToolbar, HTMLIonToolbarElement>('ion-toolbar', undefined, undefined, defineIonToolbar);
-export const IonVirtualScroll = /*@__PURE__*/createReactComponent<JSX.IonVirtualScroll, HTMLIonVirtualScrollElement>('ion-virtual-scroll', undefined, undefined, defineIonVirtualScroll);

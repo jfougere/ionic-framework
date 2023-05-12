@@ -1,6 +1,4 @@
-import { JSXBase } from '@stencil/core/internal';
-
-import { AnimationBuilder, Mode } from '../../interface';
+import type { AnimationBuilder, Mode } from '../../interface';
 
 export interface PickerOptions {
   columns: PickerColumn[];
@@ -13,13 +11,11 @@ export interface PickerOptions {
   mode?: Mode;
   keyboardClose?: boolean;
   id?: string;
-  htmlAttributes?: PickerAttributes;
+  htmlAttributes?: { [key: string]: any };
 
   enterAnimation?: AnimationBuilder;
   leaveAnimation?: AnimationBuilder;
 }
-
-export interface PickerAttributes extends JSXBase.HTMLAttributes<HTMLElement> {}
 
 export interface PickerButton {
   text?: string;
@@ -41,7 +37,6 @@ export interface PickerColumn {
   prefixWidth?: string;
   suffixWidth?: string;
   optionsWidth?: string;
-  refresh?: () => void;
 }
 
 export interface PickerColumnOption {
@@ -51,4 +46,8 @@ export interface PickerColumnOption {
   duration?: number;
   transform?: string;
   selected?: boolean;
+  /**
+   * The optional text to assign as the aria-label on the picker column option.
+   */
+  ariaLabel?: string;
 }

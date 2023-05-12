@@ -1,6 +1,8 @@
-import { AnimationBuilder, Mode, SpinnerTypes, TabButtonLayout } from '../interface';
+import type { SpinnerTypes } from '../components/spinner/spinner-configs';
+import type { TabButtonLayout } from '../components/tab-bar/tab-bar-interface';
+import type { AnimationBuilder, Mode } from '../interface';
 
-import { PlatformConfig } from './platform';
+import type { PlatformConfig } from './platform';
 
 export interface IonicConfig {
   /**
@@ -65,6 +67,11 @@ export interface IonicConfig {
   spinner?: SpinnerTypes;
 
   /**
+   * Overrides the default enableOnOffLabels in all `<ion-toggle>` components.
+   */
+  toggleOnOffLabels?: boolean;
+
+  /**
    * Overrides the default spinner for all `ion-loading` overlays, ie. the ones
    * created with `ion-loading-controller`.
    */
@@ -95,6 +102,11 @@ export interface IonicConfig {
    * Overrides the default "layout" of all `ion-bar-button` across the whole application.
    */
   tabButtonLayout?: TabButtonLayout;
+
+  /**
+   * Overrides the default `duration` for all `ion-toast` components.
+   */
+  toastDuration?: number;
 
   /**
    * Overrides the default "animation" of all `ion-nav` and `ion-router-outlet` across the whole application.
@@ -178,6 +190,16 @@ export interface IonicConfig {
   sanitizerEnabled?: boolean;
 
   /**
+   * Relevant Components: ion-alert, ion-infinite-scroll-content, ion-loading, ion-refresher-content, ion-toast
+   * If `false`, all `innerHTML` usage will be disabled in Ionic, and
+   * custom HTML will not be usable in the relevant components.
+   * If `true`, all `innerHTML` usage will be enabled in Ionic, and
+   * custom HTML will be usable in the relevant components.
+   * `innerHTML` usage is disabled by default.
+   */
+  innerHTMLTemplatesEnabled?: boolean;
+
+  /**
    * Overrides the default platform detection methods.
    */
   platform?: PlatformConfig;
@@ -191,6 +213,7 @@ export interface IonicConfig {
   hideCaretOnScroll?: boolean;
 
   // INTERNAL configs
+  // TODO(FW-2832): types
   persistConfig?: boolean;
   _forceStatusbarPadding?: boolean;
   _testing?: boolean;
@@ -203,20 +226,21 @@ export interface IonicConfig {
 export const setupConfig = (config: IonicConfig) => {
   const win = window as any;
   const Ionic = win.Ionic;
+  // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
   if (Ionic && Ionic.config && Ionic.config.constructor.name !== 'Object') {
     return;
   }
   win.Ionic = win.Ionic || {};
   win.Ionic.config = {
     ...win.Ionic.config,
-    ...config
+    ...config,
   };
   return win.Ionic.config;
 };
 
 export const getMode = (): Mode => {
   const win = window as any;
-  const config = win && win.Ionic && win.Ionic.config;
+  const config = win?.Ionic?.config;
   if (config) {
     if (config.mode) {
       return config.mode;
@@ -226,3 +250,5 @@ export const getMode = (): Mode => {
   }
   return 'md';
 };
+
+export const ENABLE_HTML_CONTENT_DEFAULT = false;
